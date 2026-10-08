@@ -1,1 +1,1 @@
-It will be added later as the preoject progresses
+It will be added later as the project progresses
