@@ -85,3 +85,70 @@ Results match the tutorial exactly.
 - Train/test split and extrapolation check.
 - Multivariate linear regression for superheated vapor enthalpy H(P, T).
 - GLM with polynomial basis (degree 4) and with a logarithmic basis, with residual plots.
+
+## 8. Superheated Vapor: Multivariate Linear Regression (Part 2)
+
+### 8.1 Target and features
+
+- **Target:** specific enthalpy H [kJ/kg] of superheated vapor (temperature columns `'75'` to `'650'` of the H dataframe)
+- **Features:** pressure P [kPa] and temperature T [°C]
+- Superheated vapor is single-phase, so T and P are independent (F = 2) and H = f(P, T).
+- Empty cells (NaN) mark states below the saturation temperature at that pressure, or temperatures not tabulated.
+
+### 8.2 Data preparation
+
+- The H table has 136 pressures × 33 temperatures = 4,488 cells.
+- `np.meshgrid(P, T)` builds two grids of shape (33, 136), one with the pressure and one with the temperature of every cell. Z (the H block) has shape (136, 33), so it is transposed to match.
+- X, Y and Z.T are flattened with `reshape(-1, 1)` so that position *i* refers to the same cell in all three arrays.
+- Rows with NaN enthalpy are removed with a boolean mask.
+
+| Check | Value |
+|---|---|
+| Total cells | 4,488 |
+| Filled cells (`notna().sum().sum()`) | 2,063 |
+| NaN cells | 2,425 |
+| Rows after cleaning | 2,063 |
+
+The cleaned row count matches the number of filled cells in the table.
+
+**Implementation note:** the tutorial's loop (`P_clean[j] = Ps[i]`) fails on recent NumPy versions because `Ps[i]` is a one-element array, not a scalar. Fixed by masking on the raveled arrays instead of looping.
+
+### 8.3 Model
+
+`LinearRegression` on `[P, T]` → H.
+
+| Quantity | Value |
+|---|---|
+| P coefficient | −0.0181 kJ/kg per kPa |
+| T coefficient | 2.267 kJ/kg/K |
+| Intercept | 2380.3 kJ/kg |
+| R² | 0.9877 |
+
+**Interpretation**
+
+- **T coefficient:** the average heat capacity of steam over the data range, physically sensible (about 2 kJ/kg/K).
+- **P coefficient:** small and negative. Enthalpy of a real gas falls slightly with pressure at constant T. For an ideal gas it would be zero.
+- **Intercept:** H extrapolated to P = 0, T = 0 °C, well outside the data (table starts at 75 °C). A fitting constant, not a physical value.
+
+### 8.4 Residual analysis
+
+Residuals (actual − predicted) range from about −190 to +90 kJ/kg, up to roughly 5 to 7% of H.
+
+**Residuals vs. temperature**
+
+- U-shaped: positive at low T (about +90 at 75 °C), minimum near 300 to 340 °C (about −190 at high P), positive again at high T (about +87 at 650 °C).
+- A plane is linear in T, so this shows H is curved in T. This is consistent with heat capacity rising with temperature.
+- The largest errors are near the saturation boundary at high pressure, where steam is farthest from ideal-gas behavior.
+
+**Residuals vs. pressure**
+
+- Each temperature forms its own streak, and the slope of the streak depends on T. Cool steam starts positive and falls steeply with P. Hot steam starts negative and rises with P.
+- The plane has a single P coefficient, but the effect of P on H changes with T (strong at low T, near zero at high T, as for an ideal gas). This indicates a **P × T interaction** that the model cannot represent.
+
+**Why R² is still high (0.988):** H increases steadily with T, which dominates the total variance, so a plane captures most of it. As in Part 1, a high R² does not mean a good model.
+
+### 8.5 Conclusion and next steps
+
+- The multivariate linear model is physically reasonable but systematically wrong in two ways: curvature in T and a P × T interaction.
+- Next: refit with a degree-2 polynomial in (P, T), which adds T², P² and P × T, then repeat the same two residual plots. Standardize inputs, since P is in the thousands and T in the hundreds.
+- Still to do: 3D surface plot with `plot_surface`, polynomial and log-basis GLM for saturated liquid V, hand-built prediction functions from fitted coefficients, train/test and extrapolation checks, RMSE and MAE comparison.
