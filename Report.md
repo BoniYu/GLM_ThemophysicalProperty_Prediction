@@ -152,3 +152,61 @@ Residuals (actual − predicted) range from about −190 to +90 kJ/kg, up to rou
 - The multivariate linear model is physically reasonable but systematically wrong in two ways: curvature in T and a P × T interaction.
 - Next: refit with a degree-2 polynomial in (P, T), which adds T², P² and P × T, then repeat the same two residual plots. Standardize inputs, since P is in the thousands and T in the hundreds.
 - Still to do: 3D surface plot with `plot_surface`, polynomial and log-basis GLM for saturated liquid V, hand-built prediction functions from fitted coefficients, train/test and extrapolation checks, RMSE and MAE comparison.
+
+## Part 9: Polynomial GLM for saturated liquid volume V(P)
+
+### Goal
+Fit polynomial models of degree 1 to 5 to saturated liquid volume (`Liq_Sat`) as a function of pressure, and compare them with the MLCE_book tutorial.
+
+### Method
+- Data: V rows of the steam table, 136 pressure points from 1 to 11400 kPa; target is `Liq_Sat` (1.0 to 1.504 cm³/g).
+- Model: scikit-learn `Pipeline` of `PolynomialFeatures` followed by `LinearRegression`.
+- Metric: R² on the training data (no train/test split yet).
+
+### First attempt: unscaled pressure
+R² did not rise with degree, and degree 4 gave 0.866 against the tutorial's 0.997.
+
+| Degree | R² (unscaled) |
+|---|---|
+| 1 | 0.975 |
+| 2 | 0.987 |
+| 3 | 0.935 |
+| 4 | 0.866 |
+| 5 | 0.790 |
+
+### Diagnosis
+- P ranges from 1 to 11400, so P⁴ is about 10¹⁶ while P is about 10³. The polynomial columns differ in size by many orders of magnitude (ill-conditioned).
+- The newer scikit-learn solver uses a looser cutoff (`tol=1e-6`) and treats the small columns as noise. The notebook showed `rank_` = 2 for degrees 3 to 5, so only 2 of the polynomial terms were kept, which made higher degrees behave like a lower-degree model.
+- The tutorial was most likely run with an older version that kept all terms. This is inferred from the results, not checked against the book's exact version.
+- Refitting with a tight cutoff gave 0.994 (degree 3) and 0.997 (degree 4), matching the tutorial.
+
+### Fix
+Standardize P before generating the polynomial features:
+
+```python
+Pipeline([
+    ("scaler", StandardScaler()),
+    ("polynomial_features", PolynomialFeatures(degree=n, include_bias=False)),
+    ("linear_regression", LinearRegression()),
+])
+```
+
+### Results after scaling
+
+| Degree | R² |
+|---|---|
+| 1 | 0.975 |
+| 2 | 0.987 |
+| 3 | 0.994 |
+| 4 | 0.997 |
+| 5 | 0.998 |
+
+Degree 4 now matches the tutorial's 0.997.
+
+### Takeaways
+- Scaling does not change plain linear regression in exact arithmetic, but it matters for high-degree polynomials because of numerical conditioning.
+- A result from a book can change when the library underneath it changes. Check the rank and conditioning of the fit instead of trusting R² alone.
+- Training R² always rises with degree. Whether degree 4 or 5 is actually better needs a train/test split and an extrapolation check, which are planned extensions.
+
+### Next
+Log-basis GLM for V, then the train/test and extrapolation comparison of polynomial and log models.
