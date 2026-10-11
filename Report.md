@@ -210,3 +210,59 @@ Degree 4 now matches the tutorial's 0.997.
 
 ### Next
 Log-basis GLM for V, then the train/test and extrapolation comparison of polynomial and log models.
+
+## Part 4: Polynomial and logarithmic GLMs for saturated liquid volume V(P)
+
+### Goal
+Go beyond the straight-line fit by adding basis functions of pressure, and compare the polynomial and logarithmic models on saturated liquid volume (`Liq_Sat`). This closes the single-variable regression part of the project.
+
+### Models
+A generalized linear model (GLM) here is still linear in its coefficients. The curve in P comes from the features built from P, not from the fitting method, which is ordinary least squares in every case.
+
+**Linear**
+
+$$V = b_0 + b_1 P$$
+
+**Polynomial of degree n**
+
+$$V = b_0 + b_1 P + b_2 P^2 + \dots + b_n P^n$$
+
+The features are $[P, P^2, \dots, P^n]$.
+
+**Logarithmic basis**
+
+$$V = b_0 + b_1 P + b_2 \ln P$$
+
+The features are $[P, \ln P]$. The input is still one pressure column of shape (136, 1). The pipeline expands it to two features inside, using a custom `log_feature` transformer. The target `Liq_Sat` is not transformed.
+
+### Implementation notes
+- The polynomial pipeline is `StandardScaler` → `PolynomialFeatures` → `LinearRegression`. The scaler comes first (see Part 3).
+- The log pipeline is `log_feature` → `StandardScaler` → `LinearRegression`. The log step must come first, because P is positive and standardizing would create negative values, for which the log is undefined.
+- Scaling does not change the fit for ordinary least squares in exact arithmetic. It matters for conditioning, and it was needed for the high-degree polynomials.
+
+### Results (training R²)
+
+| Model | Number of coefficients | R² |
+|---|---|---|
+| Linear (P) | 2 | 0.975 |
+| Polynomial, degree 2 | 3 | 0.987 |
+| Polynomial, degree 3 | 4 | 0.994 |
+| Polynomial, degree 4 | 5 | 0.997 |
+| Polynomial, degree 5 | 6 | 0.998 |
+| **Logarithmic (P, ln P)** | **3** | **0.998** |
+
+Why both features are needed in the log model: ln P alone gives R² = 0.768, worse than the straight line. P captures the steep, almost linear rise at high pressure, and ln P captures the sharp bend at low pressure. Together they follow the whole curve.
+
+### Residual analysis (log model)
+- The fitted curve follows the data closely over almost the whole range.
+- Residuals are mostly within ±0.01 cm³/g.
+- The residuals are **not** random. They form a wave: negative below about 1000 kPa, positive between about 1000 and 5500 kPa, negative again from about 6000 to 10500 kPa, and positive at the highest pressures. This means the model is still missing some systematic structure.
+- The lowest-pressure point (P = 1 kPa) has the largest residual, about +0.043. The model predicts a value below the true 1.0, because ln P changes very quickly near P = 1 and the curve cannot follow it.
+
+### Takeaways
+- Choosing basis functions that match the physics of the data gives a better model with fewer parameters. The log model (3 coefficients) matches the degree-5 polynomial (6 coefficients) and beats the degree-4 polynomial (5 coefficients).
+- High R² does not mean the model is adequate. The residuals still show a pattern, so an even better basis could exist.
+- All values above are **training** R². A model with more flexibility will always score at least as well on the data it was fitted on. Whether the log model is really better than the polynomials, and how each behaves outside the fitted pressure range, needs a train/test split and an extrapolation check. These are planned extensions.
+
+### Next
+Multivariate regression for superheated vapor enthalpy H(P, T), starting with a degree-2 polynomial in P and T to remove the structure seen in the residuals of the linear model.
