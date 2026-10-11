@@ -1,0 +1,28 @@
+{
+  "sklearn_version": "1.9.1",
+  "target": "Liq_Sat (V, cm3/g)",
+  "input": "Pressure (kPa)",
+  "valid_P_range": [
+    1.0,
+    11400.0
+  ],
+  "name": "poly_deg2",
+  "r2_train": 0.9870375378361614,
+  "intercept_scaled": 1.2305930561615601,
+  "coefficients_scaled": [
+    0.13933155389125762,
+    -0.015210703220383615
+  ],
+  "scaler_mean": [
+    3502.774448529412
+  ],
+  "scaler_scale": [
+    3234.945700161198
+  ],
+  "model": "degree-2 polynomial in standardized P",
+  "features": [
+    "z^1",
+    "z^2"
+  ],
+  "note": "z = (P - scaler_mean) / scaler_scale"
+}
