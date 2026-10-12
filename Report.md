@@ -265,4 +265,68 @@ Why both features are needed in the log model: ln P alone gives R² = 0.768, wor
 - All values above are **training** R². A model with more flexibility will always score at least as well on the data it was fitted on. Whether the log model is really better than the polynomials, and how each behaves outside the fitted pressure range, needs a train/test split and an extrapolation check. These are planned extensions.
 
 ### Next
-Multivariate regression for superheated vapor enthalpy H(P, T), starting with a degree-2 polynomial in P and T to remove the structure seen in the residuals of the linear model.
+Multilinear regression for superheated vapor enthalpy H(P, T), starting with a degree-2 polynomial in P and T to remove the structure seen in the residuals of the linear model.
+
+## Part 5: Multiple linear regression for superheated enthalpy H(P, T)
+
+### Goal
+Predict the specific enthalpy H of superheated steam from two input variables, pressure P and temperature T, and then test whether polynomial features improve the fit.
+
+### Terminology
+One output (H) from several inputs (P, T) is strictly **multiple** regression. "Multivariate" strictly means several outputs predicted together. The MLCE_book tutorial uses "multivariate" loosely for several inputs. The method is ordinary least squares in both cases.
+
+### Data preparation
+- The steam table is in wide format: 136 pressure rows and 33 temperature columns (75 to 650 °C), with one block of rows per property.
+- `np.meshgrid` pairs every pressure with every temperature, giving 33 × 136 = 4488 grid cells. Cells where the state is not superheated are NaN.
+- After flattening and removing the NaN cells, **2063** valid (P, T, H) points remain. This matches the count of non-NaN cells in the table.
+- V, U, H and S all share the same 2063 valid (P, T) cells.
+- Shapes: the inputs form a (2063, 2) matrix of P and T, and the target is a 1D vector of 2063 H values.
+
+### Model 1: linear
+
+$$H = b_0 + b_1 P + b_2 T$$
+
+| Quantity | Value |
+|---|---|
+| P coefficient | −0.0181 kJ/kg per kPa |
+| T coefficient | 2.267 kJ/kg per °C |
+| Intercept | 2380.3 kJ/kg |
+| R² | 0.9877 |
+
+The model is a plane in (P, T, H) space. Enthalpy rises with temperature and falls slightly with pressure.
+
+### Residual analysis (linear model)
+R² is high, but the residuals show clear structure:
+- Against **T**: a U-shaped pattern, so the dependence on temperature is curved, not straight.
+- Against **P**: a fan shape, so the spread of the errors depends on P. This suggests an interaction between P and T.
+
+A high R² therefore does not mean the model is adequate. Missing curvature and interaction terms are still visible in the residuals.
+
+### Model 2: polynomial in P and T
+Features are built from the two variables, and the model is still linear in its coefficients. A polynomial of degree 2 is:
+
+$$H = b_0 + b_1 P + b_2 T + b_3 P^2 + b_4 PT + b_5 T^2$$
+
+The degree-3 polynomial adds the cubic and mixed terms (9 features in total).
+
+Implementation: `StandardScaler` → `PolynomialFeatures(include_bias=False)` → `LinearRegression`. The scaler comes first because the powers of P (up to 11400 kPa) otherwise differ in size by many orders of magnitude, which caused rank truncation for V in Part 3. Coefficients from the pipeline are in standardized units. They are read through `model.named_steps["linear_regression"]`.
+
+### Results (training data)
+
+| Model | Features | R² | MSE | RMSE [kJ/kg] |
+|---|---|---|---|---|
+| Linear | 2 | 0.9877 | | |
+| Polynomial, degree 2 | 5 | 0.9978 | | |
+| Polynomial, degree 3 | 9 | 0.9996 | | |
+
+*(Fill in MSE and RMSE from the notebook output. RMSE is the square root of MSE and is in kJ/kg, so it can be compared with the size of H.)*
+
+### Residual analysis (polynomial models)
+*(Add what the residual plots against P and T show for degrees 2 and 3: whether the U-shape and the fan have gone.)*
+
+### Caveats
+- All numbers are **training** metrics. Training R² never decreases when features are added, so the degree-3 fit being higher does not show that it is better.
+- The comparison that matters is on held-out data: a train/test split, and an ordered split that tests extrapolation to higher pressures or temperatures. These are the planned extensions.
+
+### Next
+Logarithmic basis for H(P, T), then comparison of all models on held-out data.
