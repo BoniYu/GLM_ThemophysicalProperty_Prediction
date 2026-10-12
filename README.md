@@ -39,4 +39,32 @@ pip install numpy pandas matplotlib scikit-learn jupyter
 
 ## Results
 
-- To be added once the modeling phase is complete. Detailed findings will go in a separate Report.md.
+All metrics are computed on the training data. A train/test split has not been done.
+
+### Saturated liquid volume V(P)
+
+| Model | Coefficients | R² |
+|---|---|---|
+| Linear | 2 | 0.975 |
+| Polynomial, degree 2 | 3 | 0.987 |
+| Polynomial, degree 3 | 4 | 0.994 |
+| Polynomial, degree 4 | 5 | 0.997 |
+| Polynomial, degree 5 | 6 | 0.998 |
+| Logarithmic (P, ln P) | 3 | 0.998 |
+
+V = 0.9568 + 3.134×10⁻⁵ · P + 0.02004 · ln P  (P in kPa, V in cm³/g)
+
+### Superheated enthalpy H(P, T)
+
+| Model | Features | R² | RMSE [kJ/kg] |
+|---|---|---|---|
+| Linear | 2 | 0.9877 | 33.6 |
+| Polynomial, degree 2 | 5 | 0.9978 | 14.1 |
+| Polynomial, degree 3 | 9 | 0.9996 | 6.2 |
+| Logarithmic (P, T, ln P, T ln P) | 4 | 0.9942 | 23.1 |
+
+### Findings
+- A basis function that matches the physics (the log for V) gives a better fit with fewer coefficients than a high-degree polynomial.
+- Unscaled high-degree polynomials fail numerically with newer scikit-learn versions. Standardizing the inputs before the polynomial step fixes it.
+- For H, the degree-2 and degree-3 polynomials fit better than the log basis, because most of the curvature is in temperature.
+- Models for V are saved in `models/` with their coefficients.

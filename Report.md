@@ -330,3 +330,63 @@ Implementation: `StandardScaler` → `PolynomialFeatures(include_bias=False)` �
 
 ### Next
 Logarithmic basis for H(P, T), then comparison of all models on held-out data.
+
+## Part 6: Logarithmic basis for superheated enthalpy H(P, T)
+
+### Goal
+Test whether log-transformed pressure features improve the model for H(P, T), and compare it with the linear and polynomial models from Part 5.
+
+### Model
+The basis combines the two measured variables and their log interaction:
+
+$$H = a_0 + a_1 P + a_2 T + a_3 \ln P + a_4\, T \ln P$$
+
+Features: $[P,\ T,\ \ln P,\ T \ln P]$, built by a custom transformer (`log_feature_PT`) from the (2063, 2) matrix of P and T.
+
+Implementation: `log_feature_PT` → `StandardScaler` → `LinearRegression`. The log step comes first because P must be positive, and standardizing first would create negative values for which the log is undefined. The scaler follows, because the four features have very different sizes.
+
+### Coefficients (original units)
+
+| Term | Coefficient |
+|---|---|
+| Intercept $a_0$ | |
+| $P$ | |
+| $T$ | |
+| $\ln P$ | |
+| $T \ln P$ | |
+
+*(Fill in from the notebook printout. The standardized coefficients are converted to original units by dividing by the scaler's scale and shifting the intercept.)*
+
+### Results (training data)
+
+| Model | Features | R² | RMSE [kJ/kg] |
+|---|---|---|---|
+| Linear | P, T | | |
+| Polynomial, degree 2 | 5 | | |
+| Polynomial, degree 3 | 9 | | |
+| Logarithmic | P, T, ln P, T ln P | | |
+
+### Residual analysis
+*(Describe the residual plots against P and T for the log model, and compare them with the polynomial models.)*
+
+### Discussion
+- For saturated liquid V, the log of pressure was the right basis, because volume changes sharply at low pressure. Enthalpy of superheated steam depends mostly on temperature and weakly on pressure, so the best basis may differ from V's.
+- Compare the log model with the polynomial models in the table above, and note which fits better and with how many coefficients.
+- All metrics here are on training data. Whether a model generalizes needs held-out data.
+
+---
+
+## Project status
+
+**Completed**
+- Exploratory analysis of the steam table (wide format, saturation and superheated regions), with the phase-rule reasoning for the inputs.
+- Saturated liquid volume V(P): linear (whole range and piecewise), polynomial (degrees 1 to 5, with the scaling fix) and logarithmic models. Models saved with coefficients.
+- Superheated enthalpy H(P, T): multiple linear regression, polynomial models (degrees 1 to 3) and logarithmic basis.
+
+**Optional extra analysis (not in the tutorial)**
+- Multivariate regression with several outputs (H, U, S) from the same inputs P and T. For ordinary least squares, it gives the same coefficients as separate fits.
+
+**Possible future work**
+- Train/test split and an ordered extrapolation split.
+- Ridge, Lasso and cross-validation.
+- Thermodynamic consistency check H = U + PV.
