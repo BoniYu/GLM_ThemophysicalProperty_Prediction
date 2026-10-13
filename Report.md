@@ -526,3 +526,11 @@ The first term is the ideal-gas $R/P$. For a virial-type gas $V = RT/P + B(T)$, 
 - All metrics are on the training data. No train/test split, extrapolation test, or cross-validation was done.
 - Only the V models are saved (`models/`). The H and S models exist in the notebooks but are not saved.
 - The steam table is smooth, noise-free data. The results say how well each basis approximates the table, not how it would behave on noisy measurements.
+
+
+
+**Why the order of scaling differs.**
+- *Polynomial:* a polynomial in the standardized variable $z = (P-\mu)/\sigma$ is still a polynomial in $P$, so scaling first does not change which models can be fitted. It only reparametrizes them and keeps the columns $P, P^2, \dots$ similar in size.
+- *Logarithm:* $\ln z = \ln\!\big((P-\mu)/\sigma\big)$ is not a function of $\ln P$. Centering moves the subtraction inside the logarithm, so scaling first would fit a different basis, and about half of the values of $z$ are negative, so the log is undefined. The log is therefore applied to the raw positive values and the scaler follows, to put $P$ and $\ln P$ on comparable scales.
+
+A linear rescaling is harmless before a polynomial but changes the model inside a logarithm.
