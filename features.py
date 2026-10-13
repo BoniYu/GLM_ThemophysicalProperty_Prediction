@@ -18,4 +18,16 @@ class log_feature_PT(BaseEstimator, TransformerMixin):
 
     def transform(self, X):
         P, T = X[:, 0], X[:, 1]
-        return np.column_stack([P, T, np.log(P), T * np.log(P)])    
+        return np.column_stack([P, T, np.log(P), T * np.log(P)])   
+
+
+# Especially for S
+class log_feature_PT_K(BaseEstimator, TransformerMixin):
+    """Input columns [P, T] with T in °C. Output: P, T, ln P, ln T (T converted to kelvin)."""
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X = np.asarray(X)
+        P, T = X[:, 0], X[:, 1]
+        return np.column_stack([P, T, np.log(P), np.log(T + 273.15)])        

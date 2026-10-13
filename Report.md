@@ -455,3 +455,74 @@ S is fitted on its own with a logarithmic basis, using features built from $\ln 
 
 ### Next
 Fit S with the log basis and compare it with the linear fit (R² = 0.665).
+
+### Log model for S
+
+**Features.** From the ideal-gas relation, S depends on ln T and ln P, so the model uses
+
+$$S = a_0 + a_P P + a_T T + a_{\ln P} \ln P + a_{\ln T} \ln T_K, \qquad T_K = T + 273.15$$
+
+The logarithm needs absolute temperature, so T is converted to kelvin inside the log term. A logarithm of a Celsius value has no thermodynamic meaning, because it depends on where zero is placed. The linear T term is unaffected by the choice of scale. H and U keep the linear model in P and T.
+
+Implementation: custom transformer (`log_feature_PT_K`) → `StandardScaler` → `LinearRegression`. The log step comes first because P and T_K must be positive, and the scaler follows because the four features differ in size by orders of magnitude.
+
+**Results**
+
+| Model for S | R² | RMSE [kJ/(kg·K)] |
+|---|---|---|
+| Linear in P, T (multivariate fit) | 0.665 | |
+| Log basis: P, T, ln P, T·ln P | 0.9948 | 0.0562 |
+| **Log basis: P, T, ln P, ln T_K** | **0.9962** | **0.0484** |
+
+The RMSE of 0.048 is less than 1% of the range of S (about 5.4 to 11.4).
+
+**Coefficients in original units.** The pipeline fits standardized features, so each coefficient is divided by the scaler's σ for that feature, and the intercept becomes $a_0 = b_0 - \sum_j b_j \mu_j / \sigma_j$.
+
+| Term | Coefficient |
+|---|---|
+| Intercept $a_0$ | 1.1423 |
+| $P$ [per kPa] | −1.730×10⁻⁵ |
+| $T$ [per °C] | 1.311×10⁻³ |
+| $\ln P$ | −0.4686 |
+| $\ln T_K$ | 1.388 |
+
+The equation gives the same prediction as the pipeline (checked at a test point to about 10 significant figures).
+
+### Comparison with the ideal-gas theory
+
+For an ideal gas, $S \approx S_0 + c_p \ln T - R \ln P$.
+
+- **ln P:** the fitted coefficient −0.4686 is within about 2% of $-R = -0.4615$ kJ/(kg·K) for steam. The data recover the gas constant without being told it.
+- **ln T:** differentiating the whole model with respect to $\ln T_K$ gives an effective heat capacity
+  $c_p = T_K \,(\partial S/\partial T)_P = a_{\ln T} + a_T T_K$.
+  At 300 °C (573.15 K): $1.388 + 0.00131 \times 573.15 \approx 2.14$ kJ/(kg·K), close to the roughly 2 kJ/(kg·K) expected for steam. The ln T coefficient alone (1.388) looks low because the linear T term carries part of the dependence. In this model $c_p$ rises with temperature, which real steam also does.
+
+**Partial derivatives of the model**
+
+$$\left(\frac{\partial S}{\partial P}\right)_T = a_P + \frac{a_{\ln P}}{P}, \qquad \left(\frac{\partial S}{\partial T}\right)_P = a_T + \frac{a_{\ln T}}{T_K}$$
+
+### The pressure term (interpretation, not a tested result)
+The Maxwell relation $(\partial S/\partial P)_T = -(\partial V/\partial T)_P$ turns the model into
+
+$$\left(\frac{\partial V}{\partial T}\right)_P = \frac{0.4686}{P} + 1.73\times10^{-5}$$
+
+The first term is the ideal-gas $R/P$. For a virial-type gas $V = RT/P + B(T)$, we get $(\partial V/\partial T)_P = R/P + dB/dT$, so the constant 1.73×10⁻⁵ plays the role of $dB/dT$, the temperature dependence of the second virial coefficient, which is positive for steam. This is a plausible explanation only: the value comes from one fit over a wide range of conditions, it was not compared with tabulated virial data, and the ln P coefficient also differs slightly from −R, so the effects are not cleanly separated.
+
+### Why different properties need different features
+- **H, U:** for an ideal gas, depend on T alone and linearly, so P and T work well (R² about 0.988), and a T² term captures the variation of $c_p$ with temperature.
+- **S:** involves $dT/T$ and $dP/P$, so logarithms are needed.
+
+---
+
+## Conclusions
+
+- Linear models with basis functions (polynomial and logarithmic) are interpretable, fast to fit, and fit the steam table well.
+- The right features depend on the property and its physics. A log of pressure suits V, a T² term suits H, and logs of both P and T suit S.
+- A high R² does not mean an adequate model. Residual patterns and predicted vs actual plots exposed missing terms in the linear H and S models.
+- Unscaled high-degree polynomials fail numerically under newer scikit-learn versions, and standardizing the inputs before the polynomial step fixes it. Results from a book can change with the library version.
+- With ordinary least squares, a multi-output fit gives the same coefficients as separate fits, so separate bases per output cost nothing.
+
+### Limitations
+- All metrics are on the training data. No train/test split, extrapolation test, or cross-validation was done.
+- Only the V models are saved (`models/`). The H and S models exist in the notebooks but are not saved.
+- The steam table is smooth, noise-free data. The results say how well each basis approximates the table, not how it would behave on noisy measurements.
