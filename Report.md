@@ -390,3 +390,68 @@ Implementation: `log_feature_PT` → `StandardScaler` → `LinearRegression`. Th
 - Train/test split and an ordered extrapolation split.
 - Ridge, Lasso and cross-validation.
 - Thermodynamic consistency check H = U + PV.
+
+## Part 7: Multivariate regression for H, U and S (extra analysis)
+
+This part is not in the MLCE_book tutorial. It was added to practise multi-output regression.
+
+### Goal
+Predict several properties at once (enthalpy H, internal energy U and entropy S) from the same two inputs, pressure P and temperature T, with one model.
+
+### Terminology
+- One output from several inputs is **multiple** regression (Part 5).
+- Several outputs predicted together is **multivariate** regression (this part).
+
+For ordinary least squares, the multi-output fit gives exactly the same coefficients as fitting each output separately. The squared error splits into one term per output, so each column of coefficients is found independently. Fitting them together is a convenience, not a different model.
+
+### Setup
+- H, U and S share the same 2063 valid (P, T) points. The NaN masks of the three properties were checked and are identical (`np.array_equal` returned `True` for H vs U and H vs S), so the same P and T arrays serve all three.
+- Inputs: `X_fit`, shape (2063, 2), with columns P and T.
+- Targets: `Y`, shape (2063, 3), built with `np.column_stack`. Rows are data points and columns are outputs, in the order H, U, S. Row i of `Y` holds the three properties for the same (P, T) point.
+- Model: one `LinearRegression` fitted on `X_fit` and `Y`. `coef_` has shape (3, 2) and `intercept_` has shape (3,): one equation per output.
+
+$$\begin{aligned}
+H &= b_{H,0} + b_{H,P}\,P + b_{H,T}\,T \\
+U &= b_{U,0} + b_{U,P}\,P + b_{U,T}\,T \\
+S &= b_{S,0} + b_{S,P}\,P + b_{S,T}\,T
+\end{aligned}$$
+
+### Results
+
+`model.score` on a multi-output model returns the **average** R² over the outputs, which was 0.88. The per-output values are:
+
+| Output | R² |
+|---|---|
+| H | 0.9877 |
+| U | 0.9879 |
+| S | 0.6654 |
+
+The average of 0.88 hides the difference: H and U are fitted well by a plane in (P, T), but S is not.
+
+### Diagnosis: predicted vs actual
+- H and U lie close to the diagonal, with only slight curvature.
+- S shows a curved, wave-like band, and the predictions saturate near 8.5 kJ/(kg·K) while the actual values reach about 11. A systematic curve like this means a missing nonlinear term, not noise.
+
+### Why entropy needs logarithms
+For an ideal gas, the entropy change is
+
+$$dS = c_p \frac{dT}{T} - R \frac{dP}{P}$$
+
+Integrating, with $c_p$ approximately constant:
+
+$$S \approx S_0 + c_p \ln T - R \ln P$$
+
+So entropy is linear in $\ln T$ and $\ln P$, not in T and P. By contrast, the enthalpy and internal energy of an ideal gas depend on temperature alone and linearly ($dH = c_p\,dT$, $dU = c_v\,dT$), which is why the plane in (P, T) fits H and U well.
+
+A straight line in P cannot follow $\ln P$ over a pressure range of 1 to 11400 kPa, and the mismatch is largest at low pressure, where $\ln P$ changes fastest and S is highest. This is the same reason the log basis worked for V(P) in Part 4.
+
+Steam is not an ideal gas, especially at high pressure and near saturation, so this equation explains the shape of the dependence and is not an exact model.
+
+### Decision
+S is fitted on its own with a logarithmic basis, using features built from $\ln P$ and $\ln T$ (and, if needed, P and T). H and U keep the linear model. Separate fits lose nothing, because ordinary least squares treats each output independently.
+
+### Log model for S
+*(Add the features, coefficients in original units, R² and RMSE, and the predicted vs actual plot once fitted.)*
+
+### Next
+Fit S with the log basis and compare it with the linear fit (R² = 0.665).
