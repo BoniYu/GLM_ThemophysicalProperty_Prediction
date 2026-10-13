@@ -468,7 +468,7 @@ Implementation: custom transformer (`log_feature_PT_K`) → `StandardScaler` →
 
 **Results**
 
-| Model for S | R² | RMSE [kJ/(kg·K)] |
+| Model for S | 
 |---|---|---|
 | Linear in P, T (multivariate fit) | 0.665 | |
 | Log basis: P, T, ln P, T·ln P | 0.9948 | 0.0562 |
